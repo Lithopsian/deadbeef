@@ -3047,26 +3047,29 @@ ddb_listview_column_free (DdbListview *listview, DdbListviewColumn * c) {
     free (c);
 }
 
+static DdbListviewColumn *
+column_remove (DdbListview *listview, DdbListviewColumn *c) {
+    assert (c);
+    DdbListviewColumn *next = c->next;
+    if (c->sort_order) {
+        listview->binding->col_sort (0, c->user_data);
+    }
+    ddb_listview_column_free (listview, c);
+    listview->binding->columns_changed (listview);
+    return next;
+}
+
 void
 ddb_listview_column_remove (DdbListview *listview, int idx) {
-    DdbListviewColumn *c;
     if (idx == 0) {
-        c = listview->columns;
-        assert (c);
-        listview->columns = c->next;
-        ddb_listview_column_free (listview, c);
-        listview->binding->columns_changed (listview);
+        listview->columns = column_remove (listview, listview->columns);
         return;
     }
-    c = listview->columns;
+    DdbListviewColumn *c = listview->columns;
     int i = 0;
     while (c) {
         if (i+1 == idx) {
-            assert (c->next);
-            DdbListviewColumn *next = c->next->next;
-            ddb_listview_column_free (listview, c->next);
-            c->next = next;
-            listview->binding->columns_changed (listview);
+            c->next = column_remove (listview, c->next);
             return;
         }
         c = c->next;
