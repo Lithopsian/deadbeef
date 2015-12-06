@@ -750,10 +750,11 @@ trackfocus_cb (gpointer data) {
 
 int
 gtkui_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
+    fprintf (stderr, "message %d (p1=%d, p2=%d)\n", id, p1, p2);
+
     if (!gtkui_accept_messages) {
         return -1;
     }
-
     search_message(id, ctx, p1, p2);
     ddb_gtkui_widget_t *rootwidget = w_get_rootwidget ();
     if (rootwidget) {
@@ -773,14 +774,14 @@ gtkui_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
         }
         break;
     case DB_EV_TRACKINFOCHANGED:
-        {
-            ddb_event_track_t *ev = (ddb_event_track_t *)ctx;
-            if (ev->track) {
-                deadbeef->pl_item_ref (ev->track);
-                g_idle_add (trackinfochanged_cb, ev->track);
-            }
+    {
+        ddb_event_track_t *ev = (ddb_event_track_t *)ctx;
+        if (ev->track) {
+            deadbeef->pl_item_ref (ev->track);
+            g_idle_add (trackinfochanged_cb, ev->track);
         }
         break;
+    }
     case DB_EV_PLAYLISTCHANGED:
         if (p1 == DDB_PLAYLIST_CHANGE_CONTENT) {
             g_idle_add (playlistcontentchanged_cb, NULL);
