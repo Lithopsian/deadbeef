@@ -93,6 +93,12 @@ void
 draw_get_text_extents (drawctx_t *ctx, const char *text, int len, int *w, int *h);
 
 int
+draw_is_ellipsized (drawctx_t *ctx);
+
+const char *
+draw_get_text (drawctx_t *ctx);
+
+int
 draw_get_listview_rowheight (drawctx_t *ctx);
 
 int

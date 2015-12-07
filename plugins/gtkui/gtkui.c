@@ -750,11 +750,10 @@ trackfocus_cb (gpointer data) {
 
 int
 gtkui_message (uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
-    fprintf (stderr, "message %d (p1=%d, p2=%d)\n", id, p1, p2);
-
     if (!gtkui_accept_messages) {
         return -1;
     }
+
     search_message(id, ctx, p1, p2);
     ddb_gtkui_widget_t *rootwidget = w_get_rootwidget ();
     if (rootwidget) {
