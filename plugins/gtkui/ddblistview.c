@@ -3413,7 +3413,7 @@ list_tooltip_handler (GtkWidget *widget, gint x, gint y, gboolean keyboard_mode,
                 cairo_rectangle(cr, 0, 0, 0, 0);
                 cairo_clip(cr);
                 GdkColor clr = { 0 };
-                int row_y = ddb_listview_get_row_pos (listview, pick_ctx.item_idx);
+                int row_y = ddb_listview_get_row_pos (listview, pick_ctx.item_idx) - listview->scrollpos;
                 listview->binding->draw_column_data (listview, cr, it, pick_ctx.item_idx, c->align_right, c->user_data, &clr, cx, row_y, c->width, listview->rowheight);
                 cairo_destroy (cr);
                 if (draw_is_ellipsized(&listview->listctx)) {
