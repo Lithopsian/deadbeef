@@ -56,7 +56,6 @@ struct _DdbListviewGroup {
     DdbListviewIter head;
     int32_t height;
     int32_t num_items;
-    int pinned;
     struct _DdbListviewGroup *next;
 };
 

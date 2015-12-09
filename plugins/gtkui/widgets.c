@@ -2105,7 +2105,7 @@ playlist_setup_cb (gpointer data) {
     }
     return FALSE;
 }
-
+/*
 struct fromto_t {
     DdbListview *listview;
     DB_playItem_t *from;
@@ -2126,7 +2126,39 @@ songchanged_fromto (DdbListview *listview, ddb_event_trackchange_t *ev) {
     ft->listview = listview;
     return ft;
 }
+*/
+static gboolean
+songfinished_cb (gpointer data) {
+    w_trackdata_t *d = data;
+    int idx = deadbeef->pl_get_idx_of (d->trk);
+    if (idx != -1) {
+        ddb_listview_draw_row (d->listview, idx, d->trk);
+    }
+    deadbeef->pl_item_unref (d->trk);
+    free (data);
+    return FALSE;
+}
 
+static gboolean
+songstarted_cb (gpointer data) {
+    w_trackdata_t *d = data;
+    int idx = deadbeef->pl_get_idx_of (d->trk);
+    if (idx != -1) {
+        if (!ddb_listview_is_scrolling (d->listview)) {
+            if (deadbeef->conf_get_int ("playlist.scroll.cursorfollowplayback", 1)) {
+                ddb_listview_set_cursor (d->listview, idx);
+            }
+            if (deadbeef->conf_get_int ("playlist.scroll.followplayback", 1)) {
+                ddb_listview_scroll_to (d->listview, idx);
+            }
+            ddb_listview_draw_row (d->listview, idx, d->trk);
+        }
+    }
+    deadbeef->pl_item_unref (d->trk);
+    free (data);
+    return FALSE;
+}
+/*
 static gboolean
 songchanged_cb (gpointer data) {
     struct fromto_t *ft = data;
@@ -2159,7 +2191,7 @@ songchanged_cb (gpointer data) {
 
     return FALSE;
 }
-
+*/
 static gboolean
 trackfocus_cb (gpointer data) {
     deadbeef->pl_lock ();
@@ -2186,14 +2218,31 @@ focus_selection_cb (gpointer data) {
 
 static int
 w_playlist_message (ddb_gtkui_widget_t *w, uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
+    fprintf(stderr, "message id %d (p1=%d, p2=%d)\n", id, p1, p2);
     w_playlist_t *p = (w_playlist_t *)w;
     switch (id) {
     case DB_EV_PAUSED:
         g_idle_add (paused_cb, p->list);
         break;
-    case DB_EV_SONGCHANGED:
-        g_idle_add (songchanged_cb, songchanged_fromto(p->list, (ddb_event_trackchange_t *)ctx));
+    case DB_EV_SONGFINISHED:
+    {
+        ddb_event_trackchange_t *ev = (ddb_event_trackchange_t *)ctx;
+        if (ev->from) {
+            g_idle_add (songfinished_cb, playlist_trackdata(p->list, ev->from));
+        }
         break;
+    }
+    case DB_EV_SONGSTARTED:
+    {
+        ddb_event_trackchange_t *ev = (ddb_event_trackchange_t *)ctx;
+        if (ev->to) {
+            g_idle_add (songstarted_cb, playlist_trackdata(p->list, ev->to));
+        }
+        break;
+    }
+//    case DB_EV_SONGCHANGED:
+//        g_idle_add (songchanged_cb, songchanged_fromto(p->list, (ddb_event_trackchange_t *)ctx));
+//        break;
     case DB_EV_TRACKINFOCHANGED:
         if (p1 == DDB_PLAYLIST_CHANGE_CONTENT || p1 == DDB_PLAYLIST_CHANGE_PLAYQUEUE) {
             g_idle_add (playlist_sort_reset_cb, p->list);
@@ -2525,6 +2574,7 @@ w_selproperties_create (void) {
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scroll), GTK_SHADOW_ETCHED_IN);
     w->tree = gtk_tree_view_new ();
+    gtk_widget_set_can_focus (w->tree, FALSE);
     gtk_widget_show (w->tree);
     gtk_tree_view_set_enable_search (GTK_TREE_VIEW (w->tree), FALSE);
     gtk_container_add (GTK_CONTAINER (scroll), w->tree);

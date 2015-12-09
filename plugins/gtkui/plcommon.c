@@ -181,15 +181,13 @@ pl_common_rewrite_column_config (DdbListview *listview, const char *name) {
 static gboolean
 tf_redraw_cb (gpointer user_data) {
     DdbListview *lv = user_data;
-
-    printf ("redraw track %d\n", lv->tf_redraw_track_idx);
     ddb_listview_draw_row (lv, lv->tf_redraw_track_idx, lv->tf_redraw_track);
     lv->tf_redraw_track_idx = -1;
     if (lv->tf_redraw_track) {
         lv->binding->unref (lv->tf_redraw_track);
         lv->tf_redraw_track = NULL;
     }
-    DDB_LISTVIEW(user_data)->tf_redraw_timeout_id = 0;
+    lv->tf_redraw_timeout_id = 0;
     return FALSE;
 }
 
@@ -323,7 +321,7 @@ pl_common_draw_album_art (DdbListview *listview, cairo_t *cr, DB_playItem_t *it,
     col_info_t *info = user_data;
 
     int art_x = x + ART_PADDING_HORZ;
-    int min_y = (pinned == 1 && gtkui_groups_pinned ? listview->grouptitle_height : y) + ART_PADDING_VERT;
+    int min_y = (pinned ? listview->grouptitle_height : y) + ART_PADDING_VERT;
     if (info->cover_size == art_width) {
         cover_draw_exact(it, art_x, min_y, next_y, art_width, art_height, cr, user_data);
     }
@@ -341,7 +339,6 @@ void
 pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter it, int idx, int iter, int align, void *user_data, GdkColor *fg_clr, int x, int y, int width, int height) {
     col_info_t *info = user_data;
     DB_playItem_t *playing_track = deadbeef->streamer_get_playing_track ();
-    int theming = !gtkui_override_listview_colors ();
 
     if (!gtkui_unicode_playstate && it && it == playing_track && info->id == DB_COLUMN_PLAYING) {
         int paused = deadbeef->get_output ()->state () == OUTPUT_STATE_PAUSED;
@@ -386,14 +383,13 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
                 .flags = DDB_TF_CONTEXT_HAS_ID | DDB_TF_CONTEXT_HAS_INDEX,
             };
             deadbeef->tf_eval (&ctx, info->bytecode, text, sizeof (text));
-            if (ctx.update > 0 && !listview->tf_redraw_timeout_id) {
-                if ((ctx.flags & DDB_TF_CONTEXT_HAS_INDEX) && ctx.iter == PL_MAIN) {
-                    listview->tf_redraw_track_idx = ctx.idx;
-                }
-                else {
-                    listview->tf_redraw_track_idx = deadbeef->plt_get_item_idx (ctx.plt, it, ctx.iter);
+            if (ctx.update > 0) {
+                if (listview->tf_redraw_timeout_id) {
+                    g_source_remove (listview->tf_redraw_timeout_id);
+                    deadbeef->pl_item_unref (listview->tf_redraw_track);
                 }
                 listview->tf_redraw_timeout_id = g_timeout_add (ctx.update, tf_redraw_cb, listview);
+                listview->tf_redraw_track_idx = idx;
                 listview->tf_redraw_track = it;
                 deadbeef->pl_item_ref (it);
             }
@@ -411,7 +407,7 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
             }
         }
         GdkColor *color = NULL;
-        if (theming) {
+        if (!gtkui_override_listview_colors ()) {
             if (deadbeef->pl_is_selected (it)) {
                 color = &gtk_widget_get_style (theme_treeview)->text[GTK_STATE_SELECTED];
             }
@@ -462,7 +458,9 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
         cairo_save(cr);
         cairo_rectangle(cr, x+5, y, width-10, height);
         cairo_clip(cr);
+struct timeval then; gettimeofday(&then, NULL);
         draw_text_custom (&listview->listctx, x + 5, y + 3, width-10, align, DDB_LIST_FONT, bold, italic, text);
+//struct timeval now; gettimeofday(&now, NULL);fprintf(stderr, "pinning took %d us\n", now.tv_usec - then.tv_usec + 1000000*(now.tv_sec - then.tv_sec));
         cairo_restore(cr);
     }
     if (playing_track) {
@@ -1635,7 +1633,6 @@ pl_common_draw_group_title (DdbListview *listview, cairo_t *drawable, DdbListvie
                 ctx.plt = NULL;
             }
 
-
             char *lb = strchr (str, '\r');
             if (lb) {
                 *lb = 0;
@@ -1658,10 +1655,14 @@ pl_common_draw_group_title (DdbListview *listview, cairo_t *drawable, DdbListvie
             float rgb[] = {clr.red/65535., clr.green/65535., clr.blue/65535.};
             draw_set_fg_color (&listview->grpctx, rgb);
         }
-        int ew, eh;
-        draw_get_text_extents (&listview->grpctx, str, -1, &ew, &eh);
-        draw_text_custom (&listview->grpctx, x + 5, y + height/2 - draw_get_listview_rowheight (&listview->grpctx)/2 + 3, ew+5, 0, DDB_GROUP_FONT, 0, 0, str);
-        draw_line (&listview->grpctx, x + 5 + ew + 3, y+height/2, x + width, y+height/2);
+        int ew;
+        draw_text_custom (&listview->grpctx, x + 5, y + height/2 - draw_get_listview_rowheight (&listview->grpctx)/2 + 3, -1, 0, DDB_GROUP_FONT, 0, 0, str);
+        draw_get_layout_extents (&listview->grpctx, &ew, NULL);
+        int len = strlen (str);
+        int line_x = x + 5 + ew + (len ? ew / len / 2 : 0);
+        if (line_x < x + width) {
+            draw_line (&listview->grpctx, line_x, y+height/2, x+width, y+height/2);
+        }
     }
 }
 
