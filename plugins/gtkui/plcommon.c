@@ -1691,3 +1691,123 @@ pl_common_set_group_format (DdbListview *listview, char *format_conf) {
     deadbeef->conf_unlock ();
     listview->group_title_bytecode = deadbeef->tf_compile (listview->group_format);
 }
+
+void
+pl_common_row_redraw (DdbListview *listview, DB_playItem_t *it, int iter) {
+    int idx = deadbeef->pl_get_idx_of_iter (it, iter);
+    if (idx != -1) {
+        ddb_listview_draw_row (listview, idx, NULL);
+    }
+}
+
+void
+pl_common_playing_redraw (DdbListview *listview, int iter) {
+    DB_playItem_t *it = deadbeef->streamer_get_playing_track ();
+    if (it) {
+        pl_common_row_redraw (listview, it, iter);
+        deadbeef->pl_item_unref (it);
+    }
+}
+
+// This only actually does anything if the track is in the current playlist, otherwise gtkui.c will handle it
+void
+pl_common_songstarted (DdbListview *listview, DB_playItem_t *it, int iter) {
+    int idx = deadbeef->pl_get_idx_of_iter (it, iter);
+    if (idx != -1) {
+        if (!gtkui_listview_busy) {
+            if (deadbeef->conf_get_int ("playlist.scroll.cursorfollowplayback", 1)) {
+                ddb_listview_select_single (listview, idx);
+                deadbeef->pl_set_cursor (iter, idx);
+            }
+            if (deadbeef->conf_get_int ("playlist.scroll.followplayback", 1)) {
+                ddb_listview_scroll_to (listview, idx);
+            }
+        }
+        ddb_listview_draw_row (listview, idx, NULL);
+    }
+}
+
+void
+pl_common_set_cursor (DdbListview *listview, DB_playItem_t *it, int iter) {
+    int new_cursor = deadbeef->pl_get_idx_of_iter (it, iter);
+    if (new_cursor != -1) {
+        int cursor = deadbeef->pl_get_cursor (iter);
+        if (new_cursor != cursor) {
+            deadbeef->pl_set_cursor (iter, new_cursor);
+            ddb_listview_draw_row (listview, new_cursor, NULL);
+            if (cursor != -1) {
+                ddb_listview_draw_row (listview, cursor, NULL);
+            }
+        }
+        ddb_listview_scroll_to (listview, new_cursor);
+    }
+}
+
+void
+pl_common_focus_selection (DdbListview *listview, int iter) {
+    deadbeef->pl_lock ();
+    DB_playItem_t *it = deadbeef->pl_get_first (iter);
+    while (it && !deadbeef->pl_is_selected (it)) {
+        DB_playItem_t *next = deadbeef->pl_get_next (it, iter);
+        deadbeef->pl_item_unref (it);
+        it = next;
+    }
+    if (it) {
+        pl_common_set_cursor (listview, it, iter);
+        deadbeef->pl_item_unref (it);
+    }
+    deadbeef->pl_unlock ();
+}
+
+// This only actually does anything if the track is in the current playlist
+// Otherwise gtkui.c will handle it and send a PLAYLISTSWITCHED message
+void
+pl_common_trackfocus (DdbListview *listview, int iter) {
+    deadbeef->pl_lock ();
+    DB_playItem_t *it = deadbeef->streamer_get_playing_track ();
+    if (it) {
+        int cursor = deadbeef->pl_get_idx_of_iter (it, iter);
+        if (cursor != -1) {
+            ddb_listview_select_single (listview, cursor);
+            deadbeef->pl_set_cursor (iter, cursor);
+            ddb_listview_scroll_to (listview, cursor);
+        }
+        deadbeef->pl_item_unref (it);
+    }
+    deadbeef->pl_unlock ();
+}
+
+static gboolean
+list_redraw_cb (gpointer data) {
+    ddb_listview_refresh (DDB_LISTVIEW(data), DDB_REFRESH_LIST);
+    return FALSE;
+}
+
+static gboolean
+header_redraw_cb (gpointer data) {
+    ddb_listview_refresh (DDB_LISTVIEW(data), DDB_REFRESH_COLUMNS);
+    return FALSE;
+}
+
+static gboolean
+config_changed_cb (gpointer data) {
+    ddb_listview_refresh (DDB_LISTVIEW(data), DDB_REFRESH_COLUMNS | DDB_REFRESH_LIST | DDB_REFRESH_CONFIG);
+    return FALSE;
+}
+
+void
+pl_common_configchanged (DdbListview *listview, const char *conf_str) {
+    if (gtkui_listview_override_conf(conf_str) || gtkui_listview_font_conf(conf_str)) {
+        g_idle_add (config_changed_cb, listview);
+    }
+    else if (gtkui_listview_colors_conf(conf_str)) {
+        g_idle_add (list_redraw_cb, listview);
+        g_idle_add (header_redraw_cb, listview);
+    }
+    else if (gtkui_listview_font_style_conf(conf_str) || !strcmp (conf_str, "playlist.pin.groups")) {
+        g_idle_add (list_redraw_cb, listview);
+    }
+    else if (gtkui_tabstrip_override_conf(conf_str) || gtkui_tabstrip_colors_conf(conf_str)) {
+        g_idle_add (header_redraw_cb, listview);
+    }
+}

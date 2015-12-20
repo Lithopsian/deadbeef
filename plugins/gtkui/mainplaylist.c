@@ -166,6 +166,152 @@ main_draw_group_title (DdbListview *listview, cairo_t *drawable, DdbListviewIter
     pl_common_draw_group_title (listview, drawable, it, PL_MAIN, x, y, width, height);
 }
 
+typedef void (*trackdata_callback_t) (DdbListview *listview, DB_playItem_t *it, int iter);
+
+typedef struct {
+    trackdata_callback_t callback;
+    DdbListview *listview;
+    DB_playItem_t *trk;
+} w_trackdata_t;
+
+static gboolean
+trackdata_callback (gpointer data) {
+    w_trackdata_t *d = data;
+    d->callback (d->listview, d->trk, PL_MAIN);
+    deadbeef->pl_item_unref (d->trk);
+    free (d);
+    return FALSE;
+}
+
+static void
+submit_trackdata_callback (trackdata_callback_t callback, DdbListview *listview, uintptr_t ctx) {
+    ddb_event_track_t *ev = (ddb_event_track_t *)ctx;
+    if (ev->track) {
+        w_trackdata_t *d = malloc (sizeof (w_trackdata_t));
+        if (d) {
+            deadbeef->pl_item_ref(ev->track);
+            d->callback = callback;
+            d->listview = listview;
+            d->trk = ev->track;
+            g_idle_add (trackdata_callback, d);
+        }
+    }
+}
+
+static gboolean
+paused_cb (gpointer data) {
+    pl_common_playing_redraw (data, PL_MAIN);
+    return FALSE;
+}
+
+static gboolean
+sort_reset_cb (gpointer data) {
+    ddb_listview_col_sort (data);
+    return FALSE;
+}
+
+gboolean
+main_playlist_setup_cb (gpointer data) {
+    DdbListview *listview = DDB_LISTVIEW(data);
+    ddb_listview_clear_sort (listview);
+    ddb_playlist_t *plt = deadbeef->plt_get_curr ();
+    if (plt) {
+        int scroll = deadbeef->plt_get_scroll (plt);
+        if (!ddb_listview_list_setup(listview, scroll)) {
+            deadbeef->plt_unref (plt);
+            return TRUE;
+        }
+
+        int cursor = deadbeef->plt_get_cursor (plt, PL_MAIN);
+        if (cursor != -1) {
+            DB_playItem_t *it = deadbeef->pl_get_for_idx (cursor);
+            if (it) {
+                deadbeef->pl_set_selected (it, 1);
+                deadbeef->pl_item_unref (it);
+            }
+        }
+        deadbeef->plt_unref (plt);
+
+        if (scroll < 0) {
+            ddb_listview_scroll_to (listview, scroll * -1);
+        }
+
+        ddb_listview_refresh(listview, DDB_REFRESH_LIST);
+    }
+    return FALSE;
+}
+
+static gboolean
+focus_selection_cb (gpointer data) {
+    pl_common_focus_selection (data, PL_MAIN);
+    return FALSE;
+}
+
+static gboolean
+trackfocus_cb (gpointer data) {
+    pl_common_trackfocus (data, PL_MAIN);
+    return FALSE;
+}
+
+static gboolean
+list_redraw_cb (gpointer data) {
+    ddb_listview_refresh (DDB_LISTVIEW(data), DDB_REFRESH_LIST);
+    return FALSE;
+}
+
+int
+main_playlist_message (DdbListview *listview, uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2) {
+    switch (id) {
+    case DB_EV_PAUSED:
+        g_idle_add (paused_cb, listview);
+        break;
+    case DB_EV_SONGFINISHED:
+        submit_trackdata_callback (pl_common_row_redraw, listview, ctx);
+        break;
+    case DB_EV_SONGSTARTED:
+        submit_trackdata_callback (pl_common_songstarted, listview, ctx);
+        break;
+    case DB_EV_TRACKINFOCHANGED:
+        if (p1 == DDB_PLAYLIST_CHANGE_CONTENT || p1 == DDB_PLAYLIST_CHANGE_PLAYQUEUE) {
+            g_idle_add (sort_reset_cb, listview);
+        }
+        if (p1 == DDB_PLAYLIST_CHANGE_CONTENT || p1 == DDB_PLAYLIST_CHANGE_SELECTION && p2 != PL_MAIN || p1 == DDB_PLAYLIST_CHANGE_PLAYQUEUE) {
+            submit_trackdata_callback (pl_common_row_redraw, listview, ctx);
+        }
+        break;
+    case DB_EV_PLAYLISTCHANGED:
+        if (p1 == DDB_PLAYLIST_CHANGE_CONTENT || p1 == DDB_PLAYLIST_CHANGE_PLAYQUEUE) {
+            g_idle_add (sort_reset_cb, listview);
+        }
+        if (p1 == DDB_PLAYLIST_CHANGE_CONTENT ||
+            p1 == DDB_PLAYLIST_CHANGE_SELECTION && (p2 != PL_MAIN || (DdbListview *)ctx != listview) ||
+            p1 == DDB_PLAYLIST_CHANGE_PLAYQUEUE) {
+            g_idle_add (list_redraw_cb, listview);
+        }
+        break;
+    case DB_EV_PLAYLISTSWITCHED:
+        g_idle_add (main_playlist_setup_cb, listview);
+        break;
+    case DB_EV_FOCUS_SELECTION:
+        g_idle_add (focus_selection_cb, listview);
+        break;
+    case DB_EV_TRACKFOCUSCURRENT:
+        g_idle_add (trackfocus_cb, listview);
+        break;
+    case DB_EV_CURSOR_MOVED:
+        if (p1 != PL_MAIN) {
+            submit_trackdata_callback (pl_common_set_cursor, listview, ctx);
+        }
+        break;
+    case DB_EV_CONFIGCHANGED:
+        if (ctx) {
+            pl_common_configchanged (listview, (char *)ctx);
+        }
+        break;
+    }
+    return 0;
+}
+
 static DdbListviewBinding main_binding = {
     // rows
     .count = main_get_count,

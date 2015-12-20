@@ -82,4 +82,25 @@ pl_common_col_sort (int sort_order, int iter, void *user_data);
 void
 pl_common_set_group_format (DdbListview *listview, char *format_conf);
 
+void
+pl_common_row_redraw (DdbListview *listview, DB_playItem_t *it, int iter);
+
+void
+pl_common_playing_redraw (DdbListview *listview, int iter);
+
+void
+pl_common_songstarted (DdbListview *listview, DB_playItem_t *it, int iter);
+
+void
+pl_common_set_cursor (DdbListview *listview, DB_playItem_t *it, int iter);
+
+void
+pl_common_focus_selection (DdbListview *listview, int iter);
+
+void
+pl_common_trackfocus (DdbListview *listview, int iter);
+
+void
+pl_common_configchanged (DdbListview *listview, const char *conf_str);
+
 #endif // __PLCOLUMNS_H

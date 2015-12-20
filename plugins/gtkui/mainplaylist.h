@@ -35,4 +35,10 @@ main_playlist_free (void);
 void
 main_drag_n_drop (DdbListviewIter before, DdbPlaylistHandle from_playlist, uint32_t *indices, int length, int copy);
 
+gboolean
+main_playlist_setup_cb (gpointer data);
+
+int
+main_playlist_message (DdbListview *listview, uint32_t id, uintptr_t ctx, uint32_t p1, uint32_t p2);
+
 #endif
