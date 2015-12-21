@@ -181,12 +181,8 @@ pl_common_rewrite_column_config (DdbListview *listview, const char *name) {
 static gboolean
 tf_redraw_cb (gpointer user_data) {
     DdbListview *lv = user_data;
-    ddb_listview_draw_row (lv, lv->tf_redraw_track_idx, lv->tf_redraw_track);
+    ddb_listview_draw_row (lv, lv->tf_redraw_track_idx);
     lv->tf_redraw_track_idx = -1;
-    if (lv->tf_redraw_track) {
-        lv->binding->unref (lv->tf_redraw_track);
-        lv->tf_redraw_track = NULL;
-    }
     lv->tf_redraw_timeout_id = 0;
     return FALSE;
 }
@@ -384,16 +380,12 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
                 .flags = DDB_TF_CONTEXT_HAS_ID | DDB_TF_CONTEXT_HAS_INDEX,
             };
             deadbeef->tf_eval (&ctx, info->bytecode, text, sizeof (text));
-            if (ctx.update > 0 && !listview->tf_redraw_timeout_id) {
-                if ((ctx.flags & DDB_TF_CONTEXT_HAS_INDEX) && ctx.iter == PL_MAIN) {
-                    listview->tf_redraw_track_idx = ctx.idx;
-                }
-                else {
-                    listview->tf_redraw_track_idx = deadbeef->plt_get_item_idx (ctx.plt, it, ctx.iter);
+            if (ctx.update > 0) {
+                if (listview->tf_redraw_timeout_id) {
+                    g_source_remove (listview->tf_redraw_timeout_id);
                 }
                 listview->tf_redraw_timeout_id = g_timeout_add (ctx.update, tf_redraw_cb, listview);
-                listview->tf_redraw_track = it;
-                deadbeef->pl_item_ref (it);
+                listview->tf_redraw_track_idx = idx;
             }
             if (ctx.plt) {
                 deadbeef->plt_unref (ctx.plt);
@@ -1696,7 +1688,7 @@ void
 pl_common_row_redraw (DdbListview *listview, DB_playItem_t *it, int iter) {
     int idx = deadbeef->pl_get_idx_of_iter (it, iter);
     if (idx != -1) {
-        ddb_listview_draw_row (listview, idx, NULL);
+        ddb_listview_draw_row (listview, idx);
     }
 }
 
@@ -1723,7 +1715,7 @@ pl_common_songstarted (DdbListview *listview, DB_playItem_t *it, int iter) {
                 ddb_listview_scroll_to (listview, idx);
             }
         }
-        ddb_listview_draw_row (listview, idx, NULL);
+        ddb_listview_draw_row (listview, idx);
     }
 }
 
@@ -1734,9 +1726,9 @@ pl_common_set_cursor (DdbListview *listview, DB_playItem_t *it, int iter) {
         int cursor = deadbeef->pl_get_cursor (iter);
         if (new_cursor != cursor) {
             deadbeef->pl_set_cursor (iter, new_cursor);
-            ddb_listview_draw_row (listview, new_cursor, NULL);
+            ddb_listview_draw_row (listview, new_cursor);
             if (cursor != -1) {
-                ddb_listview_draw_row (listview, cursor, NULL);
+                ddb_listview_draw_row (listview, cursor);
             }
         }
         ddb_listview_scroll_to (listview, new_cursor);
