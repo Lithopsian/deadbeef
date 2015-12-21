@@ -206,6 +206,8 @@ paused_cb (gpointer data) {
 
 static gboolean
 sort_reset_cb (gpointer data) {
+    // Deliberate double-vision.  Successive calls to plt_sort_v2 return different results.
+    ddb_listview_col_sort (data);
     ddb_listview_col_sort (data);
     return FALSE;
 }
