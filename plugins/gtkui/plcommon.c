@@ -380,14 +380,12 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
                 .flags = DDB_TF_CONTEXT_HAS_ID | DDB_TF_CONTEXT_HAS_INDEX,
             };
             deadbeef->tf_eval (&ctx, info->bytecode, text, sizeof (text));
-            if (ctx.update > 0 && !listview->tf_redraw_timeout_id) {
-                if ((ctx.flags & DDB_TF_CONTEXT_HAS_INDEX) && ctx.iter == PL_MAIN) {
-                    listview->tf_redraw_track_idx = ctx.idx;
-                }
-                else {
-                    listview->tf_redraw_track_idx = deadbeef->plt_get_item_idx (ctx.plt, it, ctx.iter);
+            if (ctx.update > 0) {
+                if (listview->tf_redraw_timeout_id) {
+                    g_source_remove (listview->tf_redraw_timeout_id);
                 }
                 listview->tf_redraw_timeout_id = g_timeout_add (ctx.update, tf_redraw_cb, listview);
+                listview->tf_redraw_track_idx = idx;
             }
             if (ctx.plt) {
                 deadbeef->plt_unref (ctx.plt);
