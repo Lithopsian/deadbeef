@@ -181,12 +181,8 @@ pl_common_rewrite_column_config (DdbListview *listview, const char *name) {
 static gboolean
 tf_redraw_cb (gpointer user_data) {
     DdbListview *lv = user_data;
-    ddb_listview_draw_row (lv, lv->tf_redraw_track_idx, lv->tf_redraw_track);
+    ddb_listview_draw_row (lv, lv->tf_redraw_track_idx);
     lv->tf_redraw_track_idx = -1;
-    if (lv->tf_redraw_track) {
-        lv->binding->unref (lv->tf_redraw_track);
-        lv->tf_redraw_track = NULL;
-    }
     lv->tf_redraw_timeout_id = 0;
     return FALSE;
 }
@@ -392,8 +388,6 @@ pl_common_draw_column_data (DdbListview *listview, cairo_t *cr, DdbListviewIter 
                     listview->tf_redraw_track_idx = deadbeef->plt_get_item_idx (ctx.plt, it, ctx.iter);
                 }
                 listview->tf_redraw_timeout_id = g_timeout_add (ctx.update, tf_redraw_cb, listview);
-                listview->tf_redraw_track = it;
-                deadbeef->pl_item_ref (it);
             }
             if (ctx.plt) {
                 deadbeef->plt_unref (ctx.plt);

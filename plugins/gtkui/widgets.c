@@ -2041,7 +2041,7 @@ trackinfochanged_cb (gpointer data) {
     w_trackdata_t *d = data;
     int idx = deadbeef->pl_get_idx_of (d->trk);
     if (idx != -1) {
-        ddb_listview_draw_row (d->listview, idx, d->trk);
+        ddb_listview_draw_row (d->listview, idx);
     }
     deadbeef->pl_item_unref (d->trk);
     free (d);
@@ -2054,7 +2054,7 @@ paused_cb (gpointer data) {
     if (it) {
         int idx = deadbeef->pl_get_idx_of (it);
         if (idx != -1) {
-            ddb_listview_draw_row (DDB_LISTVIEW(data), idx, it);
+            ddb_listview_draw_row (DDB_LISTVIEW(data), idx);
         }
         deadbeef->pl_item_unref (it);
     }
@@ -2121,7 +2121,7 @@ songfinished_cb (gpointer data) {
     w_trackdata_t *d = data;
     int idx = deadbeef->pl_get_idx_of (d->trk);
     if (idx != -1) {
-        ddb_listview_draw_row (d->listview, idx, d->trk);
+        ddb_listview_draw_row (d->listview, idx);
     }
     deadbeef->pl_item_unref (d->trk);
     free (data);
@@ -2143,7 +2143,7 @@ songstarted_cb (gpointer data) {
                 ddb_listview_scroll_to (d->listview, idx);
             }
         }
-        ddb_listview_draw_row (d->listview, idx, d->trk);
+        ddb_listview_draw_row (d->listview, idx);
     }
     deadbeef->pl_item_unref (d->trk);
     free (data);
@@ -2157,9 +2157,9 @@ playlist_set_cursor (DdbListview *listview, DB_playItem_t *it) {
         int cursor = deadbeef->pl_get_cursor (PL_MAIN);
         if (new_cursor != cursor) {
             deadbeef->pl_set_cursor (PL_MAIN, new_cursor);
-            ddb_listview_draw_row (listview, new_cursor, NULL);
+            ddb_listview_draw_row (listview, new_cursor);
             if (cursor != -1) {
-                ddb_listview_draw_row (listview, cursor, NULL);
+                ddb_listview_draw_row (listview, cursor);
             }
         }
         ddb_listview_scroll_to (listview, new_cursor);

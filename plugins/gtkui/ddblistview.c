@@ -554,10 +554,6 @@ ddb_listview_destroy(GObject *object)
         g_source_remove (listview->tf_redraw_timeout_id);
         listview->tf_redraw_timeout_id = 0;
     }
-    if (listview->tf_redraw_track) {
-        listview->binding->unref (listview->tf_redraw_track);
-        listview->tf_redraw_track = NULL;
-    }
     draw_free (&listview->listctx);
     draw_free (&listview->grpctx);
     draw_free (&listview->hdrctx);
@@ -637,6 +633,7 @@ ddb_listview_groupcheck (DdbListview *listview) {
     int idx = listview->binding->modification_idx ();
     if (idx != listview->groups_build_idx) {
         ddb_listview_build_groups (listview);
+        gtk_widget_queue_draw (listview->list);
     }
 }
 
@@ -1373,7 +1370,7 @@ ddb_listview_list_setup_hscroll (void *user_data) {
 }
 
 void
-ddb_listview_draw_row (DdbListview *listview, int row, DdbListviewIter it) {
+ddb_listview_draw_row (DdbListview *listview, int row) {
     int y = ddb_listview_get_row_pos(listview, row) - listview->scrollpos;
     if (y + listview->rowheight > 0 && y <= listview->list_height) {
         gtk_widget_queue_draw_area (listview->list, 0, y, listview->list_width, listview->rowheight);
@@ -1442,7 +1439,7 @@ ddb_listview_deselect_all (DdbListview *listview)
         if (listview->binding->is_selected (it)) {
             listview->binding->select (it, 0);
             if (notify_singly) {
-                ddb_listview_draw_row (listview, idx, it);
+                ddb_listview_draw_row (listview, idx);
                 listview->binding->selection_changed (listview, it, idx);
             }
         }
@@ -1478,7 +1475,7 @@ ddb_listview_select_group (DdbListview *listview, DdbListviewGroup *grp, int fir
             listview->binding->select (it, 1);
         }
         if (notify_singly) {
-            ddb_listview_draw_row (listview, first_item_idx + group_idx, it);
+            ddb_listview_draw_row (listview, first_item_idx + group_idx);
             listview->binding->selection_changed (listview, it, first_item_idx + group_idx);
         }
         it = next_playitem(listview, it);
@@ -1533,7 +1530,7 @@ ddb_listview_select_single (DdbListview *ps, int sel) {
     DdbListviewIter sel_it = ps->binding->get_for_idx (sel);
     if (sel_it) {
         ps->binding->select (sel_it, 1);
-        ddb_listview_draw_row (ps, sel, sel_it);
+        ddb_listview_draw_row (ps, sel);
         ps->binding->selection_changed (ps, sel_it, sel);
         ps->binding->unref(sel_it);
     }
@@ -1545,15 +1542,13 @@ ddb_listview_update_cursor (DdbListview *ps, int cursor)
 {
     int prev = ps->binding->cursor ();
     ps->binding->set_cursor (cursor);
-    if (cursor != -1) {
-        DdbListviewIter it = ps->binding->get_for_idx (cursor);
-        ddb_listview_draw_row (ps, cursor, it);
-        UNREF (it);
-    }
-    if (prev != -1 && prev != cursor) {
-        DdbListviewIter it = ps->binding->get_for_idx (prev);
-        ddb_listview_draw_row (ps, prev, it);
-        UNREF (it);
+    if (prev != cursor) {
+        if (cursor != -1) {
+            ddb_listview_draw_row (ps, cursor);
+        }
+        if (prev != -1) {
+            ddb_listview_draw_row (ps, prev);
+        }
     }
 }
 
@@ -1611,7 +1606,7 @@ ddb_listview_select_range (DdbListview *ps, int start, int end)
             if (!ps->binding->is_selected (it)) {
                 nchanged++;
                 ps->binding->select (it, 1);
-                ddb_listview_draw_row (ps, idx, it);
+                ddb_listview_draw_row (ps, idx);
                 if (nchanged <= NUM_ROWS_TO_NOTIFY_SINGLY) {
                     ps->binding->selection_changed (ps, it, idx);
                 }
@@ -1621,7 +1616,7 @@ ddb_listview_select_range (DdbListview *ps, int start, int end)
             if (ps->binding->is_selected (it)) {
                 nchanged++;
                 ps->binding->select (it, 0);
-                ddb_listview_draw_row (ps, idx, it);
+                ddb_listview_draw_row (ps, idx);
                 if (nchanged <= NUM_ROWS_TO_NOTIFY_SINGLY) {
                     ps->binding->selection_changed (ps, it, idx);
                 }
@@ -1815,7 +1810,7 @@ ddb_listview_list_mouse1_pressed (DdbListview *ps, int state, int ex, int ey, Gd
                 DdbListviewIter it = ps->binding->get_for_idx (pick_ctx.item_idx);
                 if (it) {
                     ps->binding->select (it, 1 - ps->binding->is_selected (it));
-                    ddb_listview_draw_row (ps, pick_ctx.item_idx, it);
+                    ddb_listview_draw_row (ps, pick_ctx.item_idx);
                     ps->binding->selection_changed (ps, it, pick_ctx.item_idx);
                     UNREF (it);
                 }
@@ -1844,14 +1839,10 @@ ddb_listview_list_mouse1_pressed (DdbListview *ps, int state, int ex, int ey, Gd
     }
     cursor = ps->binding->cursor ();
     if (cursor != -1 && pick_ctx.item_idx == -1) {
-        DdbListviewIter it = ps->binding->get_for_idx (cursor);
-        ddb_listview_draw_row (ps, cursor, it);
-        UNREF (it);
+        ddb_listview_draw_row (ps, cursor);
     }
     if (prev != -1 && prev != cursor) {
-        DdbListviewIter it = ps->binding->get_for_idx (prev);
-        ddb_listview_draw_row (ps, prev, it);
-        UNREF (it);
+        ddb_listview_draw_row (ps, prev);
     }
     deadbeef->pl_unlock ();
 }

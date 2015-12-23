@@ -152,7 +152,7 @@ paused_cb (gpointer p) {
     if (it) {
         int idx = deadbeef->pl_get_idx_of_iter(it, PL_SEARCH);
         if (idx != -1) {
-            ddb_listview_draw_row(DDB_LISTVIEW(p), idx, (DdbListviewIter)it);
+            ddb_listview_draw_row(DDB_LISTVIEW(p), idx);
         }
         deadbeef->pl_item_unref(it);
     }
@@ -166,7 +166,7 @@ row_redraw_cb (gpointer p) {
     if (listview) {
         int idx = deadbeef->pl_get_idx_of_iter(it, PL_SEARCH);
         if (idx != -1) {
-            ddb_listview_draw_row(listview, idx, it);
+            ddb_listview_draw_row(listview, idx);
         }
     }
     deadbeef->pl_item_unref(it);
@@ -201,7 +201,7 @@ songstarted_cb (gpointer p) {
                     ddb_listview_scroll_to (listview, idx);
                 }
             }
-            ddb_listview_draw_row (listview, idx, it);
+            ddb_listview_draw_row (listview, idx);
         }
     }
     deadbeef->pl_item_unref (it);
@@ -215,9 +215,9 @@ set_cursor (DdbListview *listview, DB_playItem_t *it) {
         int cursor = deadbeef->pl_get_cursor (PL_SEARCH);
         if (new_cursor != cursor) {
             deadbeef->pl_set_cursor (PL_SEARCH, new_cursor);
-            ddb_listview_draw_row (listview, new_cursor, NULL);
+            ddb_listview_draw_row (listview, new_cursor);
             if (cursor != -1) {
-                ddb_listview_draw_row (listview, cursor, NULL);
+                ddb_listview_draw_row (listview, cursor);
             }
         }
         ddb_listview_scroll_to (listview, new_cursor);

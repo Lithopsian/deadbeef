@@ -56,7 +56,6 @@ struct _DdbListviewGroup {
     DdbListviewIter head;
     int32_t height;
     int32_t num_items;
-    int pinned;
     struct _DdbListviewGroup *next;
 };
 
@@ -199,7 +198,6 @@ struct _DdbListview {
 
     guint tf_redraw_timeout_id;
     int tf_redraw_track_idx;
-    DdbListviewIter tf_redraw_track;
 };
 
 struct _DdbListviewClass {
@@ -213,7 +211,7 @@ GtkWidget * ddb_listview_new();
 void
 ddb_listview_set_binding (DdbListview *listview, DdbListviewBinding *binding);
 void
-ddb_listview_draw_row (DdbListview *listview, int idx, DdbListviewIter iter);
+ddb_listview_draw_row (DdbListview *listview, int idx);
 int
 ddb_listview_handle_keypress (DdbListview *ps, int keyval, int state);
 void
